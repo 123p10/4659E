@@ -138,8 +138,8 @@ int desiredPosition = 0;
 
 
 task autoLift(){
-	const int LIFT_UP   = 4095;
-	const int LIFT_DOWN = 400;
+	const int LIFT_UP   = 3600;
+	const int LIFT_DOWN = 300;
 	int div;
 	//Feedback control variables
 	int liftError = 0;
@@ -267,7 +267,7 @@ task liftControl(){
 	const int PID_UP = 0;
 	const int PID_DOWN = 0;
 
-	int E_STOP = 2215;
+	int E_STOP = 4096;
 	//Joystick command
 	desiredLiftPosition = SensorValue[liftPot]; //Initialized with pot value @ lowest position
 	int liftSignal = 0;
@@ -281,10 +281,10 @@ task liftControl(){
 	while(true){
 
 		if(vexRT[Btn7U]){
-			E_STOP = 2215;
+	//		E_STOP = 2215;
 		}
 		if(vexRT[Btn7D]){
-			E_STOP = 10000;
+	//		E_STOP = 10000;
 		}
 
 
