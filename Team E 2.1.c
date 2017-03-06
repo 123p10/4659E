@@ -71,7 +71,7 @@ float calculatePower(float error)
 }
 
 void drivePID(int err){
-
+	//This converts err from tenths of inch to regular ticks
 	err = (35.3 * err) / 10;
 
 
@@ -407,6 +407,8 @@ void lift(int goal,int speed, bool stay){
 
 void score(int err, bool score, int liftPoint, int openClaw, int maxheight){
 
+
+	//Input err is tenths of inch this converts to regular ticks
 	err = (35.3 * err) / 10;
 
 
@@ -525,7 +527,8 @@ void pre_auton()
 }
 
 task compAuton(){
-	drivePID(240);
+	//drivePID(tenths of an inch);
+	drivePID(280);
 }
 task skillsAuton(){
 
