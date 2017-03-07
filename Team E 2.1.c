@@ -195,10 +195,10 @@ claw_state_t clawState = CLAW_MANUAL;
 
 task clawControl(){
 	//Opened and closed positions
-	const int LEFT_CLOSED  = 400; //Pot value @ left  claw closed position 373
-	const int LEFT_OPENED  = 1750;  //Pot value @ left  claw opened position
-	const int RIGHT_CLOSED = 300; //Pot value @ right claw closed position 240s
-	const int RIGHT_OPENED = 1950;  //Pot value @ right claw opened position
+	 int LEFT_CLOSED  = 400; //Pot value @ left  claw closed position 373
+	 int LEFT_OPENED  = 2450;  //Pot value @ left  claw opened position
+	 int RIGHT_CLOSED = 300; //Pot value @ right claw closed position 240s
+	 int RIGHT_OPENED = 2450;//Pot value @ right claw opened position
 
 	//Joystick command
 	int leftSignal = 0;
@@ -216,7 +216,7 @@ task clawControl(){
 				rightSignal = -127;
 			}else{
 				rightSignal = 0;
-			}
+		}
 		}else if(vexRT[Btn6D] == 1 || clawState == CLAW_OPEN){ //Command open
 			if(SensorValue[leftClawPot] < LEFT_OPENED){
 				leftSignal = 127 - SensorValue[leftClawPot] / 16;
@@ -228,12 +228,17 @@ task clawControl(){
 			}else{
 				rightSignal = 0;
 			}
-		}else if(vexRT[Btn8R] == 1){ //Command open
-			leftSignal  = 127;
-			rightSignal = 127;
-		}else{
-			leftSignal  = 0;
-			rightSignal = 0;
+		}
+		else{
+		leftSignal = 0;
+		rightSignal = 0;
+		}
+		if(vexRT[Btn8R] == 1){ //Command open
+			LEFT_OPENED = 4095;
+			RIGHT_OPENED = 4095;
+		}if(vexRT[Btn8L]){
+				LEFT_OPENED = 2450;
+				RIGHT_OPENED = 2450;
 		}
 
 		//Motor control with P.I. controls
@@ -244,6 +249,7 @@ task clawControl(){
 	  wait1Msec(25);
 	}
 }
+
 
 enum lift_state_t {LIFT_MANUAL, LIFT_RAISE, LIFT_LOWER};
 lift_state_t liftState = LIFT_MANUAL;
