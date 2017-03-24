@@ -432,16 +432,12 @@ void score(int err, bool score, int liftPoint, int openClaw, int maxheight){
 		}
 
 		if(SensorValue[liftPot] > openClaw){
-			if(SensorValue[clawPot] < 2000){
+			if(SensorValue[clawPot] < 1600){
 				motor[leftClaw] = 127;
-			}
-			else{
-				motor[leftClaw] = 0;
-			}
-			if(SensorValue[clawPot] < 2000){
 				motor[rightClaw] = 127;
 			}
 			else{
+				motor[leftClaw] = 0;
 				motor[rightClaw] = 0;
 			}
 		}
@@ -516,17 +512,12 @@ void claw(int dist){
 		while(dist > SensorValue[clawPot]){
 		if(SensorValue[clawPot] < dist){
 				motor[leftClaw] = 127;
-			}
-			else{
-				motor[leftClaw] = 0;
-			}
-			if(SensorValue[clawPot] < dist){
 				motor[rightClaw] = 127;
 			}
 			else{
+				motor[leftClaw] = 0;
 				motor[rightClaw] = 0;
 			}
-
 
 		}
 	}
@@ -534,16 +525,13 @@ void claw(int dist){
 		while(dist < SensorValue[clawPot]){
 			if(SensorValue[clawPot] > dist){
 				motor[leftClaw] = -127;
-			}
-			else{
-				motor[leftClaw] = 0;
-			}
-			if(SensorValue[clawPot] > dist){
 				motor[rightClaw] = -127;
 			}
 			else{
+				motor[leftClaw] = 0;
 				motor[rightClaw] = 0;
 			}
+
 
 
 
@@ -583,7 +571,7 @@ task compAuton(){
 	claw(400);
 	drivePID(280);
 	turn(-1000,1000);
-	claw(2000);
+	claw(1600);
 	drivePID(350);
 	claw(750);
 	lift(700,60,true);
