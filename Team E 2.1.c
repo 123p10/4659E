@@ -20,6 +20,7 @@
 #include "Vex_Competition_Includes.c"
 
 
+
 //If you add a new auton state you must increase the autonLength
 enum auton_states {AUTON_COMP, AUTON_SKILLS};
 auton_states auton = AUTON_COMP;
@@ -33,28 +34,6 @@ bool inMacro;
 int button = 1;
 
 
-int clamp(int value, int low, int high)
-{
-	if (value < low) {
-		return low;
-	} else if (value > high) {
-		return high;
-	} else {
-		return value;
-	}
-}
-
-int absClamp(int value, int innerLimit, int outerLimit)
-{
-	int absValue = abs(value);
-	if (innerLimit <= absValue && absValue <= outerLimit) {
-		return value;
-	} else if (value >= 0) {
-		return clamp(value, innerLimit, outerLimit);
-	} else {
-		return clamp(value, -outerLimit, -innerLimit);
-	}
-}
 
 void setMotorSignal(int leftSignal, int rightSignal)
 {
@@ -62,14 +41,6 @@ void setMotorSignal(int leftSignal, int rightSignal)
 	motor[leftDriveBack]   = leftSignal;
 	motor[rightDriveFront] = rightSignal;
 	motor[rightDriveBack]  = rightSignal;
-}
-
-float calculatePower(float error)
-{
-	if (error < -0.1)
-		return -calculatePower(-error);
-
-	return 0.1 * error;
 }
 
 void drivePID(int err){
@@ -83,7 +54,7 @@ void drivePID(int err){
 	int leftError, rightError, leftMotor, rightMotor,error;
 	int consis = 70;
 	const int tolerance = 5;
-	const float kP = 0.5,kD = 0,kI = 0;
+	const float kP = 0.5;
 
 	while(abs(SensorValue[leftEncoder]) < abs(err) - tolerance || abs(SensorValue[rightEncoder]) < abs(err) - tolerance){
 		if(abs(SensorValue[leftEncoder]) < abs(err) - tolerance || abs(SensorValue[rightEncoder]) < abs(err) - tolerance){
@@ -103,92 +74,6 @@ void drivePID(int err){
 	}
 	setMotorSignal(0,0);
 }
-void autoDrive(int left, int right, int limit)
-{
-	setMotorSignal(0,0);
-	//Clear encoders
-	SensorValue[rightEncoder] = 0;
-	SensorValue[leftEncoder] = 0;
-
-	int leftError, rightError, leftSignal, rightSignal;
-
-	const int tolerance = 5;
-	const float leftRatio = 1.0, rightRatio = 0.95;
-
-	do {
-		wait1Msec(10);
-
-		leftError = left - SensorValue[leftEncoder];
-		rightError = right - SensorValue[rightEncoder];
-
-		leftSignal = leftRatio * calculatePower(leftError);
-		rightSignal = rightRatio * calculatePower(rightError);
-
-		leftSignal = absClamp(leftSignal, 40, limit);
-		rightSignal = absClamp(rightSignal, 40, limit);
-
-		setMotorSignal(leftSignal, rightSignal);
-
-	} while (abs(SensorValue[leftEncoder]) < (abs(left) - tolerance) || abs(SensorValue[rightEncoder]) < (abs(right) - tolerance));
-	setMotorSignal(0,0);
-}
-
-int desiredPosition = 0;
-
-
-
-
-task autoLift(){
-	const int LIFT_UP   = 3600;
-	const int LIFT_DOWN = 300;
-	int div;
-	//Feedback control variables
-	int liftError = 0;
-	int liftSignal = 0;
-	const float LIFT_K_P = 0.3; 	//Proportional constant
-
-	while(true){
-		if(abs(desiredPosition - SensorValue[liftPot]) > (float) 20 * (float) 11.6)
-		{
-		  	div = 1;
-		}else if(abs(desiredPosition - SensorValue[liftPot]) > (float) 5 * (float) 11.6)
-		{
-		  div = 5;
-		}else
-		{
-		 	div = 10;
-	  }
-
-		if(desiredPosition == 0){ //Bring to bottom
-			if(SensorValue[liftPot] > LIFT_DOWN + 100){
-				liftSignal = -127;
-			}else if(SensorValue[liftPot] > LIFT_DOWN){
-				liftSignal = -60;
-			}else{
-				liftSignal = -8;
-			}
-		}else if(desiredPosition > SensorValue[liftPot]){ //Bring down
-			liftSignal = ((desiredPosition - SensorValue[liftPot])) / div;
-		}else{ //Coast down
-			liftSignal = 0;
-		}
-
-		//Power motors
-		motor[leftLiftSingle]  = liftSignal;
-		motor[leftLiftDouble]  = liftSignal;
-		motor[rightLiftSingle] = liftSignal;
-		motor[rightLiftDouble] = liftSignal;
-
-		//Wait for good measure ??
-	  wait1Msec(30);
-	}
-}
-
-//Use in case potentiometer values need to be modified
-//Usage: potReverse(SensorValue[potentiometer])
-int potReverse(int value){
-	return 1000 - value;
-}
 
 enum claw_state_t {CLAW_MANUAL, CLAW_CLOSE, CLAW_OPEN};
 
@@ -196,29 +81,24 @@ claw_state_t clawState = CLAW_MANUAL;
 
 task clawControl(){
 	//Opened and closed positions
-	 int CLOSED  = 420; //Pot value 420
-	 int OPENED  = 1600;  //Pot value
-	 //Prevent E_STOP
-	// LEFT_OPENED = 4090;
-	// RIGHT_OPENED = 4090;
-	//Joystick command
+	int CLOSED  = 420; //Pot value 420
+	int OPENED  = 1570;  //Pot value
 	int signal = 0;
 
 
 	while(true){
 
-		if(vexRT[Btn5U] == 1 || clawState == CLAW_CLOSE){ //Command close
+		if(vexRT[Btn5D] == 1 || clawState == CLAW_CLOSE){ //Command close
 			if(SensorValue[clawPot] > CLOSED){
-				signal = -127;
-			}else{
+				signal = 127;
+				}else{
 				signal = 0;
 			}
 
-		}else if(vexRT[Btn5D] == 1 || clawState == CLAW_OPEN){ //Command open
+			}else if(vexRT[Btn5U] == 1 || clawState == CLAW_OPEN){ //Command open
 			if(SensorValue[clawPot] < OPENED){
-				signal = 127;
-
-			}else{
+				signal = -127;
+				}else{
 				signal = 0;
 			}
 
@@ -226,14 +106,10 @@ task clawControl(){
 		else{
 			signal = 0;
 		}
-
-
-		//Motor control with P.I. controls
 		motor[leftClaw]  = signal;
 		motor[rightClaw] = signal;
 
-		//Wait for good measure :)
-	  wait1Msec(25);
+		wait1Msec(25);
 	}
 }
 
@@ -243,89 +119,61 @@ lift_state_t liftState = LIFT_MANUAL;
 
 int desiredLiftPosition;
 
-void setLiftPosition(int potValue)
-{
-	liftState = LIFT_MANUAL;
-	desiredLiftPosition = potValue;
-}
-
-		 // integral = integral + ((desiredLiftPosition - SensorValue[liftPot])*0.03);
-			//liftSignal = (LIFT_K_P*((desiredLiftPosition - SensorValue[liftPot]))) + (integral * LIFT_K_I);
-
 task liftControl(){
 	//Lowered and raised positions
 	const int LIFT_UP   = 3930; //Pot value @ raised position
 	const int LIFT_DOWN = 150; //Pot value @ lowest position
-
-	const int PID_UP = 0;
-	const int PID_DOWN = 0;
-
 	int E_STOP = 1680;
-	//LIFT_UP = 4096;
-	//Joystick command
 	desiredLiftPosition = SensorValue[liftPot]; //Initialized with pot value @ lowest position
 	int liftSignal = 0;
-	int integral = 0;
-	//Feedback control variables
-	int liftError = 0;
-	int liftErrorAccumulator = 0;
-	const float LIFT_K_P = 0.3; 	//Proportional constant
-	const float LIFT_K_I = 0; 	//Integral constant
 	int div = 0;
 	while(true){
-	if(!inMacro){
-		if(vexRT[Btn7U]){
-	//		E_STOP = 2215;
-		}
-		if(vexRT[Btn7D]){
-	//		E_STOP = 10000;
-		}
-
-
-		if((vexRT[Btn6U] == 1 || liftState == LIFT_RAISE) && SensorValue[liftPot] < LIFT_UP && SensorValue[liftPot] < E_STOP){ //Command raise lift
-			liftSignal = 127;
-			desiredLiftPosition = SensorValue[liftPot];
-		}else if((vexRT[Btn6D] == 1 || liftState == LIFT_LOWER) && SensorValue[liftPot] > LIFT_DOWN + 100){ //Command lower lift
-			liftSignal = -127;
-			desiredLiftPosition = SensorValue[liftPot];
-		}else if((vexRT[Btn6D] == 1 || liftState == LIFT_LOWER) && SensorValue[liftPot] > LIFT_DOWN ){ //Command lower lift
-			liftSignal = -60;
-		}else if(SensorValue[liftPot] < LIFT_DOWN){ //Command lower lift
-			liftSignal = -8;
-		}else{
-		  integral = integral + ((desiredLiftPosition - SensorValue[liftPot])*0.03);
-		  if(abs(desiredLiftPosition - SensorValue[liftPot]) > (float) 30 * (float) 11.6 && SensorValue[liftPot] < desiredLiftPosition)
-		  {
-		  	div = 1;
-		  }else if(abs(desiredLiftPosition - SensorValue[liftPot]) > (float) 10 * (float) 11.6  && SensorValue[liftPot] < desiredLiftPosition)
-		  {
-		  	div = 3;
-		  }else //if(SensorValue[liftPot] < desiredLiftPosition)
-		  {
-		  	div = 4;
-		  }
-			liftSignal = ((desiredLiftPosition - SensorValue[liftPot])) / div;
-
-			if(SensorValue[liftPot] < PID_DOWN){
-			//	liftSignal = 15;
+		if(!inMacro){
+			if(vexRT[Btn7U]){
+				//		E_STOP = 2215;
 			}
-			else if(SensorValue[liftPot] > PID_UP){
-				//liftSignal = -15;
+			if(vexRT[Btn7D]){
+				//		E_STOP = 10000;
 			}
 
 
+			if((vexRT[Btn6U] == 1 || liftState == LIFT_RAISE) && SensorValue[liftPot] < LIFT_UP && SensorValue[liftPot] < E_STOP){ //Command raise lift
+				liftSignal = 127;
+				desiredLiftPosition = SensorValue[liftPot];
+				}else if((vexRT[Btn6D] == 1 || liftState == LIFT_LOWER) && SensorValue[liftPot] > LIFT_DOWN + 100){ //Command lower lift
+				liftSignal = -127;
+				desiredLiftPosition = SensorValue[liftPot];
+				}else if((vexRT[Btn6D] == 1 || liftState == LIFT_LOWER) && SensorValue[liftPot] > LIFT_DOWN ){ //Command lower lift
+				liftSignal = -60;
+				}else if(SensorValue[liftPot] < LIFT_DOWN){ //Command lower lift
+				liftSignal = -8;
+				}else{
+				if(abs(desiredLiftPosition - SensorValue[liftPot]) > (float) 30 * (float) 11.6 && SensorValue[liftPot] < desiredLiftPosition)
+				{
+					div = 1;
+				}else if(abs(desiredLiftPosition - SensorValue[liftPot]) > (float) 10 * (float) 11.6  && SensorValue[liftPot] < desiredLiftPosition)
+				{
+					div = 3;
+				}else //if(SensorValue[liftPot] < desiredLiftPosition)
+				{
+					div = 6;
+				}
+				liftSignal = ((desiredLiftPosition - SensorValue[liftPot])) / div;
+
+
+
+			}
+
+			//Power motors
+			motor[leftLiftSingle]  = liftSignal;
+			motor[leftLiftDouble]  = liftSignal;
+			motor[rightLiftSingle] = liftSignal;
+			motor[rightLiftDouble] = liftSignal;
+
+			//Wait for good measure :)
+			wait1Msec(30);
 		}
-
-		//Power motors
-		motor[leftLiftSingle]  = liftSignal;
-		motor[leftLiftDouble]  = liftSignal;
-		motor[rightLiftSingle] = liftSignal;
-		motor[rightLiftDouble] = liftSignal;
-
-		//Wait for good measure :)
-	  wait1Msec(30);
 	}
-}
 }
 
 void lift(int goal,int speed, bool stay){
@@ -334,29 +182,29 @@ void lift(int goal,int speed, bool stay){
 	bool there = false;
 	while(there == false)
 	{
-	if(SensorValue[liftPot] < goal){
-		dir = true;
-		motor[leftLiftSingle]  = speed;
-		motor[leftLiftDouble]  = speed;
-		motor[rightLiftSingle] = speed;
-		motor[rightLiftDouble] = speed;
-	}
-	else{
-		dir = false;
-		motor[leftLiftSingle]  = -speed;
-		motor[leftLiftDouble]  = -speed;
-		motor[rightLiftSingle] = -speed;
-		motor[rightLiftDouble] = -speed;
-	}
-	if(abs(SensorValue[liftPot] - goal) < 80 && stay)
-	{
-		motor[leftLiftSingle]  = 20;
-		motor[leftLiftDouble]  = 20;
-		motor[rightLiftSingle] = 20;
-		motor[rightLiftDouble] = 20;
-		there = true;
-	}else if(abs(SensorValue[liftPot] - goal) < 80 && stay == false)
-		motor[leftLiftSingle]  = 0;
+		if(SensorValue[liftPot] < goal){
+			dir = true;
+			motor[leftLiftSingle]  = speed;
+			motor[leftLiftDouble]  = speed;
+			motor[rightLiftSingle] = speed;
+			motor[rightLiftDouble] = speed;
+		}
+		else{
+			dir = false;
+			motor[leftLiftSingle]  = -speed;
+			motor[leftLiftDouble]  = -speed;
+			motor[rightLiftSingle] = -speed;
+			motor[rightLiftDouble] = -speed;
+		}
+		if(abs(SensorValue[liftPot] - goal) < 80 && stay)
+		{
+			motor[leftLiftSingle]  = 20;
+			motor[leftLiftDouble]  = 20;
+			motor[rightLiftSingle] = 20;
+			motor[rightLiftDouble] = 20;
+			there = true;
+		}else if(abs(SensorValue[liftPot] - goal) < 80 && stay == false)
+			motor[leftLiftSingle]  = 0;
 		motor[leftLiftDouble]  = 0;
 		motor[rightLiftSingle] = 0;
 		motor[rightLiftDouble] = 0;
@@ -364,36 +212,36 @@ void lift(int goal,int speed, bool stay){
 	}
 	if(time1[T1] > abs(SensorValue[liftPot]) && dir == true)
 	{
-	if(stay)
-	{
-		motor[leftLiftSingle]  = 20;
-		motor[leftLiftDouble]  = 20;
-		motor[rightLiftSingle] = 20;
-		motor[rightLiftDouble] = 20;
-	}else
-	{
-		motor[leftLiftSingle]  = 0;
-		motor[leftLiftDouble]  = 0;
-		motor[rightLiftSingle] = 0;
-		motor[rightLiftDouble] = 0;
-	}
+		if(stay)
+		{
+			motor[leftLiftSingle]  = 20;
+			motor[leftLiftDouble]  = 20;
+			motor[rightLiftSingle] = 20;
+			motor[rightLiftDouble] = 20;
+		}else
+		{
+			motor[leftLiftSingle]  = 0;
+			motor[leftLiftDouble]  = 0;
+			motor[rightLiftSingle] = 0;
+			motor[rightLiftDouble] = 0;
+		}
 		there = true;
 	}
 	else if(time1[T1] > abs(SensorValue[liftPot] - goal) && dir == false){
 
-	if(stay)
-	{
-		motor[leftLiftSingle]  = 20;
-		motor[leftLiftDouble]  = 20;
-		motor[rightLiftSingle] = 20;
-		motor[rightLiftDouble] = 20;
-	}else
-	{
-		motor[leftLiftSingle]  = 0;
-		motor[leftLiftDouble]  = 0;
-		motor[rightLiftSingle] = 0;
-		motor[rightLiftDouble] = 0;
-	}
+		if(stay)
+		{
+			motor[leftLiftSingle]  = 20;
+			motor[leftLiftDouble]  = 20;
+			motor[rightLiftSingle] = 20;
+			motor[rightLiftDouble] = 20;
+		}else
+		{
+			motor[leftLiftSingle]  = 0;
+			motor[leftLiftDouble]  = 0;
+			motor[rightLiftSingle] = 0;
+			motor[rightLiftDouble] = 0;
+		}
 		there = true;
 	}
 }
@@ -410,80 +258,80 @@ void score(int err, bool score, int liftPoint, int openClaw, int maxheight){
 	int leftError, rightError, leftMotor, rightMotor,error;
 	int consis = 70;
 	const int tolerance = 5;
-	const float kP = 0.5,kD = 0,kI = 0;
+	const float kP = 0.5;
 	bool isDone = false;
 	if(score){
-	while(!isDone && leftError > 5){
-		if(abs(SensorValue[leftEncoder]) < abs(err) - tolerance || abs(SensorValue[rightEncoder]) < abs(err) - tolerance){
-			leftError = err - SensorValue[leftEncoder];
-			rightError = err - SensorValue[rightEncoder];
-			error = leftError - rightError;
-			rightMotor += consis + error * kP;
-			leftMotor -= consis + error * kP;
-			setMotorSignal(leftMotor,rightMotor);
-			wait1Msec(50);
-		}
-		else{
-			setMotorSignal(0,0);
-		}
-		if(abs(err) - abs(SensorValue[leftEncoder]) < 30){
-			leftMotor -= leftMotor * 0.1;
-			rightMotor -= rightMotor * 0.1;
-		}
-
-		if(SensorValue[liftPot] > openClaw){
-			if(SensorValue[clawPot] < 1600){
-				motor[leftClaw] = 127;
-				motor[rightClaw] = 127;
+		while(!isDone && leftError > 5){
+			if(abs(SensorValue[leftEncoder]) < abs(err) - tolerance || abs(SensorValue[rightEncoder]) < abs(err) - tolerance){
+				leftError = err - SensorValue[leftEncoder];
+				rightError = err - SensorValue[rightEncoder];
+				error = leftError - rightError;
+				rightMotor += consis + error * kP;
+				leftMotor -= consis + error * kP;
+				setMotorSignal(leftMotor,rightMotor);
+				wait1Msec(50);
 			}
 			else{
-				motor[leftClaw] = 0;
-				motor[rightClaw] = 0;
+				setMotorSignal(0,0);
+			}
+			if(abs(err) - abs(SensorValue[leftEncoder]) < 30){
+				leftMotor -= leftMotor * 0.1;
+				rightMotor -= rightMotor * 0.1;
+			}
+
+			if(SensorValue[liftPot] > openClaw){
+				if(SensorValue[clawPot] < 1600){
+					motor[leftClaw] = 127;
+					motor[rightClaw] = 127;
+				}
+				else{
+					motor[leftClaw] = 0;
+					motor[rightClaw] = 0;
+				}
+			}
+
+			if(SensorValue[leftEncoder] > liftPoint && !isDone){
+				if(SensorValue[liftPot] < maxheight){
+					motor[leftLiftSingle]  = 127;
+					motor[leftLiftDouble]  = 127;
+					motor[rightLiftSingle] = 127;
+					motor[rightLiftDouble] = 127;
+				}
+				else{
+					motor[leftLiftSingle]  = -127;
+					motor[leftLiftDouble]  = -127;
+					motor[rightLiftSingle] = -127;
+					motor[rightLiftDouble] = -127;
+					wait1Msec(200);
+					motor[leftLiftSingle]  = 0;
+					motor[leftLiftDouble]  = 0;
+					motor[rightLiftSingle] = 0;
+					motor[rightLiftDouble] = 0;
+					isDone = true;
+				}
+			}
+
+		}
+	}
+	else{
+		while(SensorValue[leftEncoder] < err){
+
+			if(abs(SensorValue[leftEncoder]) < abs(err) - tolerance || abs(SensorValue[rightEncoder]) < abs(err) - tolerance){
+				leftError = err - SensorValue[leftEncoder];
+				rightError = err - SensorValue[rightEncoder];
+				error = leftError - rightError;
+				rightMotor = consis + error * kP;
+				leftError = consis + error * kP;
+				setMotorSignal(leftMotor,rightMotor);
+				wait1Msec(50);
+			}
+			if(abs(err) - abs(SensorValue[leftEncoder]) < 30){
+				leftMotor -= leftMotor * 0.1;
+				rightMotor -= rightMotor * 0.1;
 			}
 		}
-
-		if(SensorValue[leftEncoder] > liftPoint && !isDone){
-			if(SensorValue[liftPot] < maxheight){
-				motor[leftLiftSingle]  = 127;
-				motor[leftLiftDouble]  = 127;
-				motor[rightLiftSingle] = 127;
-				motor[rightLiftDouble] = 127;
-			}
-			else{
-				motor[leftLiftSingle]  = -127;
-				motor[leftLiftDouble]  = -127;
-				motor[rightLiftSingle] = -127;
-				motor[rightLiftDouble] = -127;
-				wait1Msec(200);
-				motor[leftLiftSingle]  = 0;
-				motor[leftLiftDouble]  = 0;
-				motor[rightLiftSingle] = 0;
-				motor[rightLiftDouble] = 0;
-				isDone = true;
-			}
-		}
-
-}
-}
-else{
-	while(SensorValue[leftEncoder] < err){
-
-		if(abs(SensorValue[leftEncoder]) < abs(err) - tolerance || abs(SensorValue[rightEncoder]) < abs(err) - tolerance){
-			leftError = err - SensorValue[leftEncoder];
-			rightError = err - SensorValue[rightEncoder];
-			error = leftError - rightError;
-			rightMotor = consis + error * kP;
-			leftError = consis + error * kP;
-			setMotorSignal(leftMotor,rightMotor);
-			wait1Msec(50);
-		}
-		if(abs(err) - abs(SensorValue[leftEncoder]) < 30){
-			leftMotor -= leftMotor * 0.1;
-			rightMotor -= rightMotor * 0.1;
-		}
-}
-}
-		setMotorSignal(0,0);
+	}
+	setMotorSignal(0,0);
 }
 
 
@@ -502,7 +350,7 @@ void turn(int distL,int distR){
 			right = (motor[rightEncoder] + distR) * kp;
 		}
 	}
-		setMotorSignal(left,right);
+	setMotorSignal(left,right);
 
 }
 
@@ -510,7 +358,7 @@ void turn(int distL,int distR){
 void claw(int dist){
 	if(dist > SensorValue[clawPot]){
 		while(dist > SensorValue[clawPot]){
-		if(SensorValue[clawPot] < dist){
+			if(SensorValue[clawPot] < dist){
 				motor[leftClaw] = 127;
 				motor[rightClaw] = 127;
 			}
@@ -549,11 +397,11 @@ void pre_auton()
 {
 
 
-  bLCDBacklight = true;
+	bLCDBacklight = true;
 
 	SensorValue[rightEncoder] = 0;
 	SensorValue[leftEncoder] = 0;
-  bStopTasksBetweenModes = true;
+	bStopTasksBetweenModes = true;
 
 	bDisplayCompetitionStatusOnLcd = false;
 }
@@ -561,8 +409,8 @@ void pre_auton()
 task compAuton(){
 	//void score(int err, bool score, int liftPoint, int openClaw, int maxheight)
 	//void turn(left,right) *Note* not to tenths of inch input a raw encoder value
-	//void claw(left,right) *Note* 2000 ~ Open 90 degrees
-	//void lift(height,speed,usePIDBool) *Note* 300 is about bottom
+	//void claw(left,right)
+	//void lift(height,speed,usePIDBool)
 	//drivePID(tenths of an inch);
 
 	lift(800,60,false);
@@ -578,7 +426,6 @@ task compAuton(){
 	drivePID(-350);
 	turn(-1000,1000);
 	score(-150,true,-100,1000,1400);
-	//drivePID();
 	/*
 	Auton Plan
 
@@ -622,15 +469,15 @@ task autonomous()
 
 
 	if(currAuton == 1){
- 		auton = AUTON_COMP;
- 	}
- 	if(currAuton == 2){
+		auton = AUTON_COMP;
+	}
+	if(currAuton == 2){
 		auton = AUTON_SKILLS;
- 	}
-  bLCDBacklight = true;
+	}
+	bLCDBacklight = true;
 
-  //startTask(clawControl);
-//	startTask(liftControl);
+	//startTask(clawControl);
+	//	startTask(liftControl);
 
 
 	if(auton == AUTON_COMP){
@@ -641,7 +488,7 @@ task autonomous()
 	}
 
 
-/*	setMotorSignal(-100, -100);
+	/*	setMotorSignal(-100, -100);
 
 	autoDrive(-200, -200, 100);
 	autoDrive(-400, -400, 100);
@@ -651,40 +498,40 @@ task autonomous()
 
 	clawState = CLAW_MANUAL;
 	*/
-  //clawState = CLAW_OPEN;
-  //autoDrive(2000, 2000, 70);
-  //clawState = CLAW_CLOSE;
-  //wait1Msec(300);
+	//clawState = CLAW_OPEN;
+	//autoDrive(2000, 2000, 70);
+	//clawState = CLAW_CLOSE;
+	//wait1Msec(300);
 
-  //setLiftPosition(400);
-  //wait1Msec(100);
+	//setLiftPosition(400);
+	//wait1Msec(100);
 
-  //autoDrive(-2000, -2000, 70);
-  //wait1Msec(100);
+	//autoDrive(-2000, -2000, 70);
+	//wait1Msec(100);
 
-  //autoDrive(0, -50, 45);
-  //wait1Msec(100);
+	//autoDrive(0, -50, 45);
+	//wait1Msec(100);
 
-  //// Left side goes 400 steps backward, right side goes 400 forward, limit the speed between -70 to +70
-  //autoDrive(-400, 400, 70);
-  //wait1Msec(100);
+	//// Left side goes 400 steps backward, right side goes 400 forward, limit the speed between -70 to +70
+	//autoDrive(-400, 400, 70);
+	//wait1Msec(100);
 
-  //autoDrive(-500, -500, 70);
+	//autoDrive(-500, -500, 70);
 
-  //setLiftPosition(800);
-  //wait1Msec(200);
-  //clawState = CLAW_OPEN;
+	//setLiftPosition(800);
+	//wait1Msec(200);
+	//clawState = CLAW_OPEN;
 
-	}
+}
 
 
 
 
 task usercontrol()
 {
-//	bool macro1 = false;
-//	bool macro2 = false;
-  bLCDBacklight = true;
+	//	bool macro1 = false;
+	//	bool macro2 = false;
+	bLCDBacklight = true;
 	bool buttClicked;
 	string powerExpander;
 	string mainBattery;
@@ -693,24 +540,24 @@ task usercontrol()
 	//Drive slew buffer
 	const int SIZE = 10; //If updating SIZE, add or remove 0s from arrays below
 	int oldL[SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  int oldR[SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  int sumL = 0, sumR = 0;
+	int oldR[SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	int sumL = 0, sumR = 0;
 
-  //Higher control drive mapping
-  // DO NOT USE THIS for future
-  int driveMap[128] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-											 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-											22,23,24,25,26,27,28,28,29,29,
-											30,30,31,31,32,32,33,33,34,34,
-											35,35,36,36,37,37,38,38,39,39,
-											40,40,41,41,42,42,43,43,44,44,
-											45,45,46,46,47,47,48,48,49,49,
-											50,50,51,51,52,52,53,53,54,54,
-											55,55,56,56,57,57,58,58,59,59,
-											60,60,61,62,63,64,65,66,67,68,
-											69,70,71,72,73,74,75,76,77,78,
-											79,80,81,82,83,84,85,86,87,88,
-											89,90,91,92,94,96,127,127};
+	//Higher control drive mapping
+	// DO NOT USE THIS for future
+	int driveMap[128] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		22,23,24,25,26,27,28,28,29,29,
+		30,30,31,31,32,32,33,33,34,34,
+		35,35,36,36,37,37,38,38,39,39,
+		40,40,41,41,42,42,43,43,44,44,
+		45,45,46,46,47,47,48,48,49,49,
+		50,50,51,51,52,52,53,53,54,54,
+		55,55,56,56,57,57,58,58,59,59,
+		60,60,61,62,63,64,65,66,67,68,
+		69,70,71,72,73,74,75,76,77,78,
+		79,80,81,82,83,84,85,86,87,88,
+		89,90,91,92,94,96,127,127};
 
 	//Initialize variables
 	clawState = CLAW_MANUAL;
@@ -720,35 +567,35 @@ task usercontrol()
 	startTask(clawControl);
 	startTask(liftControl);
 
-  while (true)
-  {
-  	if(nLCDButtons != 0){
-  		button = nLCDButtons;
-  		if(button == 4 && !buttClicked){
-  			currAuton++;
-  			buttClicked = true;
-  			if(currAuton > autonLength){
-  				currAuton = 1;
-  			}
-  		}
-  	}
-  	if(nLCDButtons == 0){
-  		buttClicked = false;
-  	}
-  	if(currAuton == 1){
-  		auton = AUTON_COMP;
-  	}
-  	if(currAuton == 2){
+	while (true)
+	{
+		if(nLCDButtons != 0){
+			button = nLCDButtons;
+			if(button == 4 && !buttClicked){
+				currAuton++;
+				buttClicked = true;
+				if(currAuton > autonLength){
+					currAuton = 1;
+				}
+			}
+		}
+		if(nLCDButtons == 0){
+			buttClicked = false;
+		}
+		if(currAuton == 1){
+			auton = AUTON_COMP;
+		}
+		if(currAuton == 2){
 			auton = AUTON_SKILLS;
-  	}
+		}
 
 		clearLCDLine(0);
 		clearLCDLine(1);
-	//	clearLCDLine(2);
+		//	clearLCDLine(2);
 
 		if(button == 1){
 			displayLCDString(0,0,"Team: 4659B");
-	//		displayLCDCenteredString(1,"VEX WORLDS 2017");
+			//		displayLCDCenteredString(1,"VEX WORLDS 2017");
 			if(bIfiAutonomousMode){
 				displayLCDString(1,0,"Autonomous");
 			}
@@ -786,9 +633,9 @@ task usercontrol()
 				clawError[i] = clawError[i + 1];
 			}
 			clawError[9] = SensorValue[clawPot];
-			if(abs(clawError[9] - clawError[0]) > 10 ){
+			if(abs(clawError[9] - clawError[0]) > 10){
 				claw = -127;
-				wait1Msec(50);
+				//			wait1Msec(50);
 			}
 			else{
 				if(abs(1400 - SensorValue[liftPot]) > 10){
@@ -801,7 +648,7 @@ task usercontrol()
 			}
 			if(1200 - SensorValue[liftPot] < 10){
 				if(SensorValue[clawPot] < 2000){
-	        claw = 127;
+					claw = 127;
 				}
 				else{
 					claw = 0;
@@ -812,14 +659,14 @@ task usercontrol()
 			}
 
 
-		motor[leftLiftDouble] = lift;
-		motor[leftLiftSingle] = lift;
-		motor[rightLiftDouble] = lift;
-		motor[rightLiftSingle] = lift;
-		motor[leftClaw] = claw;
-		motor[rightClaw] = claw;
+			motor[leftLiftDouble] = lift;
+			motor[leftLiftSingle] = lift;
+			motor[rightLiftDouble] = lift;
+			motor[rightLiftSingle] = lift;
+			motor[leftClaw] = claw;
+			motor[rightClaw] = claw;
 
-	}
+		}
 
 
 		else{
@@ -848,11 +695,11 @@ task usercontrol()
 
 		//Drive motors receive moving average
 		motor[leftDriveFront]  = sumL / SIZE;
-	  motor[leftDriveBack]   = sumL / SIZE;
-	  motor[rightDriveFront] = sumR / SIZE;
-	  motor[rightDriveBack]  = sumR / SIZE;
+		motor[leftDriveBack]   = sumL / SIZE;
+		motor[rightDriveFront] = sumR / SIZE;
+		motor[rightDriveBack]  = sumR / SIZE;
 
-	  //Wait for good measure :)
-	  wait1Msec(25);
-  }
+		//Wait for good measure :)
+		wait1Msec(25);
+	}
 }
