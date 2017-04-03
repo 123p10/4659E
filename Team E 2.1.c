@@ -1,11 +1,7 @@
-#pragma config(Sensor, in1,    test,           sensorPotentiometer)
-#pragma config(Sensor, in2,    test2,          sensorPotentiometer)
 #pragma config(Sensor, in3,    clawL,          sensorPotentiometer)
-#pragma config(Sensor, in4,    clawR,          sensorPotentiometer)
-#pragma config(Sensor, in5,    liftPot,        sensorPotentiometer)
-#pragma config(Sensor, in6,    test6,          sensorPotentiometer)
-#pragma config(Sensor, in7,    test7,          sensorPotentiometer)
-#pragma config(Sensor, in8,    status,         sensorAnalog)
+#pragma config(Sensor, in6,    liftPot,        sensorPotentiometer)
+#pragma config(Sensor, in5,    clawR,          sensorPotentiometer)
+#pragma config(Sensor, in7,    status,         sensorAnalog)
 #pragma config(Sensor, dgtl5,  leftEncoder,    sensorQuadEncoder)
 #pragma config(Sensor, dgtl7,  rightEncoder,   sensorQuadEncoder)
 #pragma config(Motor,  port1,           leftClaw,      tmotorVex393_HBridge, openLoop)
@@ -61,79 +57,93 @@ void drivePID(int err){
 	}
 	setMotorSignal(0,0);
 }
-enum claw_state_t {CLAW_MANUAL, CLAW_CLOSE, CLAW_OPEN};
-claw_state_t clawState = CLAW_MANUAL;
 task clawControl(){
-	int CLOSED  = 350;
-	int OPENED  = 1700;
+	int CLOSED  = 480;
+	int OPENED  = 1400;
 	int signalL = 0;
 	int signalR = 0;
+	int incremL = 0, incremR = 0;
 	while(true){
 		if(!inMacro){
-			if(vexRT[Btn5D] == 1 || clawState == CLAW_CLOSE){
+			if(vexRT[Btn5D] == 1){
 				if(SensorValue[clawL] > CLOSED){
-					signalL = 127;
-				}
-				else{
-					signalL = 0;
+					incremL -= 17;
+					signalL = incremL;
+				}else
+				{
+					signalL = -20;
 				}
 				if(SensorValue[clawR] > CLOSED){
-					signalR = 127;
+					incremR -= 17;
+					signalR = incremR;
 				}
 				else{
-					signalR = 0;
+					signalR = -20;
 				}
 			}
-			else if(vexRT[Btn5U] == 1 || clawState == CLAW_OPEN){
+			else if(vexRT[Btn5U] == 1){
 				if(SensorValue[clawL] < OPENED){
-					signalL = -127;
+					incremL += 17;
+					signalL = incremL;
 				}
 				else{
-					signalL = 0;
+					signalL = -17;
 				}
 				if(SensorValue[clawR] < OPENED){
-					signalR = -127;
+					incremR += 10;
+					signalR = incremR;
 				}
 				else{
-					signalR = 0;
+					signalR = -10;
 				}
 			}
 			else{
 				signalL = 0;
 				signalR = 0;
 			}
+			if(vexRT[Btn5U] == 0 && vexRT[Btn5D] == 0)
+			{
+				incremL = 0;
+				incremR = 0;
+			}
+			if(SensorValue[clawL] > OPENED && vexRT[Btn5D] == 0)
+					signalL = -10;
+			if(SensorValue[clawR] > OPENED && vexRT[Btn5D] == 0)
+					signalR = -10;
 			motor[leftClaw]  = signalL;
 			motor[rightClaw] = signalR;
 			wait1Msec(25);
 		}
 	}
 }
-enum lift_state_t {LIFT_MANUAL, LIFT_RAISE, LIFT_LOWER};
-lift_state_t liftState = LIFT_MANUAL;
 int desiredLiftPosition;
 task liftControl(){
-	bool clicked6U = false;
-	const int LIFT_UP   = 3930;
-	const int LIFT_DOWN = 235;
-	int E_STOP = 1000;
+	bool clicked8R = false, clicked;
+	const int LIFT_UP   = 4000;
+	const int LIFT_DOWN = 330;
+	int E_STOP = 1350;
 	desiredLiftPosition = SensorValue[liftPot];
 	int liftSignal = 0;
 	int div = 0;
 	while(true){
 		if(!inMacro){
+			if(vexRT[Btn8R]){
+				clicked8R = true;
+			}
+			if(vexRT[Btn8R] == 0 && clicked8R == true)
+			{
+				desiredLiftPosition = 650;
+				clicked8R = false;
+			}
 			if(vexRT[Btn6U] == 1 && SensorValue[liftPot] < LIFT_UP && SensorValue[liftPot] < E_STOP){
-				liftSignal = 127;
-				desiredLiftPosition = SensorValue[liftPot];
-				if(SensorValue[liftPot] < 600){
-					clearTimer(T2);
-					clicked6U = true;
-				}
-			}
-			else if((vexRT[Btn6D] == 1 || liftState == LIFT_LOWER) && SensorValue[liftPot] > LIFT_DOWN + 100){
-				liftSignal = -127;
+				liftSignal = 100;
 				desiredLiftPosition = SensorValue[liftPot];
 			}
-			else if((vexRT[Btn6D] == 1 || liftState == LIFT_LOWER) && SensorValue[liftPot] > LIFT_DOWN ){
+			else if((vexRT[Btn6D] == 1) && SensorValue[liftPot] > LIFT_DOWN + 100){
+				liftSignal = -100;
+				desiredLiftPosition = SensorValue[liftPot];
+			}
+			else if((vexRT[Btn6D] == 1) && SensorValue[liftPot] > LIFT_DOWN ){
 				liftSignal = -60;
 			}
 			else if(SensorValue[liftPot] < LIFT_DOWN){
@@ -143,13 +153,10 @@ task liftControl(){
 				if(SensorValue[liftPot] > E_STOP){
 					desiredLiftPosition = E_STOP - 100;
 				}
-				if(time1[T2] < 250 && clicked6U == true){
-					desiredLiftPosition = 600;
-					clicked6U = false;
-				}
+
 				if(abs(desiredLiftPosition - SensorValue[liftPot]) > (float) 30 * (float) 11.6 && SensorValue[liftPot] < desiredLiftPosition)
 				{
-					div = 1;
+					div = 2;
 				}
 				else if(abs(desiredLiftPosition - SensorValue[liftPot]) > (float) 10 * (float) 11.6  && SensorValue[liftPot] < desiredLiftPosition)
 				{
@@ -160,15 +167,6 @@ task liftControl(){
 					div = 6;
 				}
 				liftSignal = (desiredLiftPosition - SensorValue[liftPot]) / div;
-			}
-			if(Btn7L){
-				E_STOP = 1000;
-			}
-			if(Btn7R){
-				E_STOP = SensorFullCount[liftPot] - 11;
-			}
-			if(SensorValue[liftPot] > E_STOP){
-		//		liftSignal -= 8;
 			}
 			motor[leftLiftSingle]  = liftSignal;
 			motor[leftLiftDouble]  = liftSignal;
@@ -461,8 +459,7 @@ task usercontrol()
 		69,70,71,72,73,74,75,76,77,78,
 		79,80,81,82,83,84,85,86,87,88,
 		89,90,91,92,94,96,127,127};
-	clawState = CLAW_MANUAL;
-	liftState = LIFT_MANUAL;
+
 	startTask(clawControl);
 	startTask(liftControl);
 	while (true)
