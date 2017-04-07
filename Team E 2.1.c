@@ -23,6 +23,7 @@ const int autonLength = 2;
 int currAuton = 1;
 bool inMacro;
 int button = 1;
+bool cmove = false;
 void setMotorSignal(int leftSignal, int rightSignal)
 {
 	motor[leftDriveFront]  = leftSignal;
@@ -69,6 +70,7 @@ task clawControl(){
 	while(true){
 		if(!inMacro){
 			if(vexRT[Btn5D] == 1){
+				cmove = false;
 				if(SensorValue[clawL] > CLOSED){
 					incremL -= 17;
 					signalL = incremL;
@@ -85,6 +87,7 @@ task clawControl(){
 				}
 			}
 			else if(vexRT[Btn5U] == 1){
+				cmove = false;
 				if(SensorValue[clawL] < OPENED){
 					incremL += 17;
 					signalL = incremL;
@@ -115,47 +118,103 @@ task clawControl(){
 			if(SensorValue[clawR] > OPENED && vexRT[Btn5D] == 0){
 				signalR = -10;
 			}
-			motor[leftClaw]  = signalL;
-			motor[rightClaw] = signalR;
+			if(cmove == false){
+				motor[leftClaw]  = signalL;
+				motor[rightClaw] = signalR;
+			}
 			wait1Msec(25);
 		}
 	}
 }
+
+bool userinput(){
+	if(vexRT[Btn5D] || vexRT[Btn5U] || vexRT[Btn6D] || vexRT[Btn6U]){
+		return true;
+	}
+	else{
+		return false;
+	}
+}
 int desiredLiftPosition;
 task liftControl(){
-	bool clicked8R = false;
+	bool clicked8R = false, clicked7L = false;
 	const int LIFT_UP = 4000;
 	const int LIFT_DOWN = 330;
-	int E_STOP = 1325; //(4000-330)/3 = ~1125, 1125 + 200 = ~1325
+	int E_STOP = 2300; //(4000-330)/3 = ~1125, 1125 + 200 = ~1325
 	desiredLiftPosition = SensorValue[liftPot];
 	int liftSignal = 0;
+	int setPoint = 1000;
 	int div = 0;
 	while(true){
 		if(!inMacro){
-			if(vexRT[Btn6U] == 1 && SensorValue[liftPot] < LIFT_UP && SensorValue[liftPot] < E_STOP){
-				liftSignal = 100;
-				desiredLiftPosition = SensorValue[liftPot];
-			}
-			else if(vexRT[Btn6D] == 1 && SensorValue[liftPot] > LIFT_DOWN + 100){
-				liftSignal = -100;
-				desiredLiftPosition = SensorValue[liftPot];
-			}
-			else if(vexRT[Btn6D] == 1 && SensorValue[liftPot] > LIFT_DOWN){
-				liftSignal = -60;
-			}
-			else if(SensorValue[liftPot] < LIFT_DOWN){
-				liftSignal = -8;
-			}
-			else{
 				if(vexRT[Btn8R] == 1){
 					clicked8R = true;
 				}
 				if(vexRT[Btn8R] == 0 && clicked8R == true)
 				{
-					writeDebugStreamLine("8R Pressed");
-					desiredLiftPosition = 920;//(4000-330)/4 = ~920
+					motor[leftClaw] = -50;
+					motor[rightClaw] = -50;
+					wait1Msec(200);
+					desiredLiftPosition = setPoint;
 					clicked8R = false;
+					cmove = true;
 				}
+
+				if(vexRT[Btn7L]){
+					clicked7L = true;
+				}
+				if(clicked7L && vexRT[Btn7L] == 0){
+						int checkavr = (SensorValue[clawL] + SensorValue[clawR]) /2;
+						cmove = true;
+						while(userinput() == 0 && SensorValue[liftPot] < 2200){
+							if(SensorValue[liftPot] < 1400 + (800-checkavr)){
+								liftSignal = 100;
+								motor[leftClaw] = -100;
+								motor[rightClaw] = -100;
+							}
+							else{
+								if(SensorValue[clawL] < 1400){
+									motor[leftClaw] = 100;
+								}
+								else{
+									motor[leftClaw] = -10;
+								}
+								if(SensorValue[clawR] < 1400){
+									motor[rightClaw] = 100;
+								}
+								else{
+									motor[rightClaw] = -10;
+								}
+								if(SensorValue[liftPot] > 2100){
+									liftSignal = -50;
+								}
+							}
+							motor[leftLiftSingle] = liftSignal;
+							motor[leftLiftDouble] = liftSignal;
+							motor[rightLiftDouble] = liftSignal;
+							motor[rightLiftSingle] = liftSignal;
+						}
+						desiredLiftPosition = setPoint;
+						cmove = false;
+						clicked7L = false;
+
+
+				}
+			if(vexRT[Btn5U] == 1 && SensorValue[liftPot] < LIFT_UP && SensorValue[liftPot] < E_STOP){
+				liftSignal = 100;
+				desiredLiftPosition = SensorValue[liftPot];
+			}
+			else if(vexRT[Btn5D] == 1 && SensorValue[liftPot] > LIFT_DOWN + 100){
+				liftSignal = -100;
+				desiredLiftPosition = SensorValue[liftPot];
+			}
+			else if(vexRT[Btn5D] == 1 && SensorValue[liftPot] > LIFT_DOWN){
+				liftSignal = -60;
+			}
+			else if(SensorValue[liftPot] < LIFT_DOWN && desiredLiftPosition != setPoint){
+				liftSignal = -8;
+			}
+			else{
 				if(SensorValue[liftPot] > E_STOP){
 					desiredLiftPosition = E_STOP - 100;
 				}
@@ -182,6 +241,7 @@ task liftControl(){
 		}
 	}
 }
+
 void lift(int goal,int speed, bool stay){
 	clearTimer(T1);
 	bool dir;
@@ -518,7 +578,7 @@ task usercontrol()
 				displayLCDString(1,0,"Skills 1");
 			}
 		}
-		if(vexRT[Btn8U]){
+	/*	if(vexRT[Btn8U]){
 			int clawLeft;
 			int clawRight;
 			int lift;
@@ -582,7 +642,7 @@ task usercontrol()
 		}
 		else{
 			inMacro = false;
-		}
+		}*/
 		oldL[9] = driveMap[abs(vexRT[Ch3])] * sgn(vexRT[Ch3]);
 		oldR[9] = driveMap[abs(vexRT[Ch2])] * sgn(vexRT[Ch2]);
 		sumL = 0;
