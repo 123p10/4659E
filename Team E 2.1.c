@@ -24,6 +24,32 @@ int currAuton = 1;
 bool inMacro;
 int button = 1;
 bool cmove = false;
+
+//Uses different functions for only 1 pot claw
+const bool TwoClaw = true;
+
+//Set pot values to equal each other so it will work with all of the already working functions
+const bool twoClaws = false;
+
+/*
+Best options
+
+Two claw
+Set TwoClaw to true and twoClaws to true
+
+One Claw
+Set TwoClaw to true and twoClaws to false
+
+
+TwoClaw twoClaws	RESULTS
+0				0			= 1 claw functions without workaround
+1				0			= 1 claw function through workaround
+0       1			= 1 claw function without workaround
+1				1			= 2 claw functions without workaround
+
+*/
+
+
 bool clamp = false;
 void setMotorSignal(int leftSignal, int rightSignal)
 {
@@ -68,63 +94,118 @@ task clawControl(){
 	int signalL = 0;
 	int signalR = 0;
 	int incremL = 0, incremR = 0;
+	if(TwoClaw){
+		CLOSED = 480;
+		OPENED = 1200;
+	}
+	else{
+		CLOSED = 480;
+		OPENED = 1200;
+	}
 	while(true){
 		if(!inMacro){
 			if(vexRT[Btn5D] == 1){
-				cmove = false;
-				if(SensorValue[clawL] > CLOSED){
-					incremL -= 17;
-					signalL = incremL;
-				}else
-				{
-					signalL = -20;
-				}
-				if(SensorValue[clawR] > CLOSED){
-					incremR -= 17;
-					signalR = incremR;
+				if(TwoClaw){
+					cmove = false;
+					clamp = false;
+					if(SensorValue[clawL] > CLOSED){
+						incremL -= 127;
+						signalL = incremL;
+					}
+					else
+					{
+						signalL = -20;
+					}
+					if(SensorValue[clawR] > CLOSED){
+						incremR -= 127;
+						signalR = incremR;
+					}
+					else{
+						signalR = -20;
+					}
 				}
 				else{
-					signalR = -20;
+					if(SensorValue[clawL] > CLOSED){
+						incremL -= 127;
+						incremR -= 127;
+						signalL = incremL;
+						signalR = incremR;
+					}
+					else
+					{
+						signalL = -20;
+						signalR = -20;
+					}
 				}
 			}
 			else if(vexRT[Btn5U] == 1){
 				cmove = false;
-				if(SensorValue[clawL] < OPENED){
-					incremL += 17;
-					signalL = incremL;
+				clamp = false;
+				if(TwoClaw){
+					if(SensorValue[clawL] < OPENED){
+						incremL += 127;
+						signalL = incremL;
+					}
+					else{
+						signalL = -10;
+					}
+					if(SensorValue[clawR] < OPENED){
+						incremR += 127;
+						signalR = incremR;
+					}
+					else{
+						signalR = -10;
+					}
 				}
 				else{
-					signalL = -17;
-				}
-				if(SensorValue[clawR] < OPENED){
-					incremR += 10;
-					signalR = incremR;
-				}
-				else{
-					signalR = -10;
+					signalL = 0;
+					signalR = 0;
 				}
 			}
 			else{
-				signalL = 0;
-				signalR = 0;
+				if(SensorValue[clawL] < OPENED){
+					incremL += 127;
+					incremL += 127;
+					signalL = incremL;
+					signalR = incremR;
+				}
+				else{
+					signalL = -10;
+					signalR = -10;
+				}
 			}
 			if(vexRT[Btn5U] == 0 && vexRT[Btn5D] == 0)
 			{
 				incremL = 0;
 				incremR = 0;
 			}
-			if(SensorValue[clawL] > OPENED && vexRT[Btn5D] == 0){
-				signalL = -10;
+			if(TwoClaw){
+				if(SensorValue[clawL] > OPENED && vexRT[Btn5D] == 0){
+					signalL = -10;
+				}
+				if(SensorValue[clawR] > OPENED && vexRT[Btn5D] == 0){
+					signalR = -10;
+				}
 			}
-			if(SensorValue[clawR] > OPENED && vexRT[Btn5D] == 0){
-				signalR = -10;
+			else{
+				if(SensorValue[clawL] > OPENED && vexRT[Btn5D] == 0){
+					signalL = -10;
+					signalR = -10;
+				}
 			}
+
 			if(cmove == false){
 				motor[leftClaw]  = signalL;
 				motor[rightClaw] = signalR;
-			}else if(clamp == false){
+			}
+			else if(clamp == true){
 				motor[leftClaw]  = -80;
 				motor[rightClaw] = -80;
+			}
+			else
+			{
+				motor[leftClaw]  = 0;
+				motor[rightClaw] = 0;
 			}
 			wait1Msec(25);
 		}
@@ -147,9 +228,10 @@ task liftControl(){
 	int E_STOP = 1200;
 	desiredLiftPosition = SensorValue[liftPot];
 	int liftSignal = 0;
-	const int setPoint = 500;
+	const int setPoint = 650;
 	int div = 0;
 	int scored = -1;
+	int clawopen = 1400;
 	while(true){
 		if(!inMacro){
 			if(vexRT[Btn8R] == 1){
@@ -157,18 +239,17 @@ task liftControl(){
 			}
 			if(vexRT[Btn8R] == 0 && clicked8R == true)
 			{
-				cmove = true;
-				//motor[leftClaw] = -50;
-				//motor[rightClaw] = -50;
-				//wait1Msec(200);
 				liftpos = 1;
+				clamp = true;
+				cmove = true;
 				clicked8R = false;
 			}
 			if(vexRT[Btn6U]){
 				scored = 0;
 				liftpos = 0;
+				cmove = true;
 				int checkavr = (SensorValue[clawL] + SensorValue[clawR]) /2;
-				clamp = true;
+				clamp = false;
 				while(vexRT[Btn6U] == 1 && SensorValue[liftPot] < 1200 && scored == 0){
 					if(SensorValue[liftPot] < 400 + (checkavr / 2) && scored == false){
 						liftSignal = 100;
@@ -176,13 +257,13 @@ task liftControl(){
 						motor[rightClaw] = -100;
 					}
 					else{
-						if(SensorValue[clawL] < 1400){
+						if(SensorValue[clawL] < clawopen){
 							motor[leftClaw] = 100;
 						}
 						else{
 							motor[leftClaw] = -10;
 						}
-						if(SensorValue[clawR] < 1400){
+						if(SensorValue[clawR] < clawopen){
 							motor[rightClaw] = 100;
 						}
 						else{
@@ -202,13 +283,13 @@ task liftControl(){
 				{
 					scored = -1;
 				}
-				clamp = false;
 				clicked7L = false;
+				clamp = true;
 				desiredLiftPosition = SensorValue[liftPot];
 			}
 
 
-		if(liftpos == 1)
+			if(liftpos == 1)
 			{
 				desiredLiftPosition = setPoint;
 			}
@@ -218,7 +299,6 @@ task liftControl(){
 				desiredLiftPosition = SensorValue[liftPot];
 			}else if(liftpos != 1 && vexRT[Btn6D] == 0)
 			{
-				cmove = true;
 				liftSignal = 0;
 			}
 			if(SensorValue[liftPot] < LIFT_DOWN && desiredLiftPosition != setPoint && desiredLiftPosition != 330){
@@ -433,40 +513,63 @@ void turn(int distL,int distR){
 	setMotorSignal(0,0);
 }
 void claw(int dist){
-	if(dist > SensorValue[clawL] || dist > SensorValue[clawR]){
-		while(dist > SensorValue[clawL] || dist > SensorValue[clawR]){
-			if(SensorValue[clawL] < dist){
-				motor[leftClaw] = -127;
+	if(TwoClaw){
+		if(dist > SensorValue[clawL] || dist > SensorValue[clawR]){
+			while(dist > SensorValue[clawL] || dist > SensorValue[clawR]){
+				if(SensorValue[clawL] < dist){
+					motor[leftClaw] = -127;
+				}
+				else{
+					motor[leftClaw] = 0;
+				}
+				if(SensorValue[clawR] < dist){
+					motor[rightClaw] = -127;
+				}
+				else{
+					motor[rightClaw] = 0;
+				}
 			}
-			else{
-				motor[leftClaw] = 0;
+		}
+		else{
+			while(dist < SensorValue[clawL]){
+				if(SensorValue[clawL] > dist){
+					motor[leftClaw] = 127;
+				}
+				else{
+					motor[leftClaw] = 0;
+				}
+				if(SensorValue[clawR] > dist){
+					motor[rightClaw] = 127;
+				}
+				else{
+					motor[rightClaw] = 0;
+				}
 			}
-			if(SensorValue[clawR] < dist){
-				motor[rightClaw] = -127;
-			}
-			else{
-				motor[rightClaw] = 0;
-			}
+			motor[leftClaw] = 0;
+			motor[rightClaw] = 0;
 		}
 	}
 	else{
-		while(dist < SensorValue[clawL]){
-			if(SensorValue[clawL] > dist){
+		if(SensorValue[clawL] < dist){
+			while(SensorValue[clawL] < dist){
+				motor[leftClaw] = -127;
+				motor[rightClaw] = -127;
+			}
+			motor[leftClaw] = 0;
+			motor[rightClaw] = 0;
+		}
+		else if(SensorValue[clawL] > dist){
+			while(SensorValue[clawL] > dist){
 				motor[leftClaw] = 127;
-			}
-			else{
-				motor[leftClaw] = 0;
-			}
-			if(SensorValue[clawR] > dist){
 				motor[rightClaw] = 127;
 			}
-			else{
-				motor[rightClaw] = 0;
-			}
+			motor[leftClaw] = 0;
+			motor[rightClaw] = 0;
 		}
-		motor[leftClaw] = 0;
-		motor[rightClaw] = 0;
+
 	}
+	motor[leftClaw] = 0;
+	motor[rightClaw] = 0;
 }
 void pre_auton()
 {
@@ -485,6 +588,8 @@ task compAuton(){
 
 	//Game Autonomous 1
 
+
+
 }
 task skillsAuton(){
 	//Skills Autonomous
@@ -492,6 +597,9 @@ task skillsAuton(){
 }
 task autonomous()
 {
+	if(twoClaws != 1){
+		SensorValue[clawR] = SensorValue[clawL];
+	}
 	if(currAuton == 1){
 		auton = AUTON_COMP;
 	}
@@ -502,9 +610,7 @@ task autonomous()
 
 	//****
 	auton = AUTON_COMP;
-	//***
-
-
+	//****
 	bLCDBacklight = true;
 	if(auton == AUTON_COMP){
 		startTask(compAuton);
@@ -544,6 +650,11 @@ task usercontrol()
 	startTask(liftControl);
 	while (true)
 	{
+		if(twoClaws != 1){
+			SensorValue[clawR] = SensorValue[clawL];
+		}
+
+
 		if(nLCDButtons != 0){
 			button = nLCDButtons;
 			if(button == 4 && !buttClicked){
